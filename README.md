@@ -12,11 +12,18 @@ pip install -r requirements.txt
 
 2. 运行服务
 
+推荐使用虚拟环境：
+
 ```bash
-uvicorn app.main:app --reload
+python -m venv .venv
+source .venv/bin/activate  # Windows 请使用 .venv\\Scripts\\activate
+pip install -r requirements.txt
+
+# 开发模式启动（自动重载）
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-默认监听 `http://127.0.0.1:8000/`，首页为报价表单。
+打开浏览器访问 `http://127.0.0.1:8000/` 即可看到报价表单页面；接口根路径同样托管静态页。
 
 ## 接口
 
