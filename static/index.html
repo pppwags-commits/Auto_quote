@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>报价单生成器</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    />
+    <style>
+      body {
+        background: #f7f9fb;
+      }
+      .quote-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        padding: 24px;
+      }
+      .summary {
+        border-left: 4px solid #3273dc;
+        padding-left: 16px;
+      }
+      .is-muted {
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="section">
+      <div class="container">
+        <div class="columns">
+          <div class="column is-5">
+            <h1 class="title is-4">报价单配置</h1>
+            <div class="quote-card">
+              <form id="quote-form">
+                <div class="field">
+                  <label class="label">产品</label>
+                  <div class="control">
+                    <div class="select is-fullwidth">
+                      <select id="product" required></select>
+                    </div>
+                  </div>
+                  <p class="help is-muted" id="product-help"></p>
+                </div>
+
+                <div class="field is-grouped">
+                  <div class="control is-expanded">
+                    <label class="label">数量</label>
+                    <input class="input" type="number" id="quantity" min="1" required />
+                  </div>
+                  <div class="control is-expanded">
+                    <label class="label">单价 (USD)</label>
+                    <input
+                      class="input"
+                      type="number"
+                      id="unit-price"
+                      min="0"
+                      step="0.01"
+                      required
+                    />
+                    <p class="help is-muted" id="price-range"></p>
+                  </div>
+                </div>
+
+                <div class="field is-grouped">
+                  <div class="control is-expanded">
+                    <label class="label">柜型</label>
+                    <div class="select is-fullwidth">
+                      <select id="container" required></select>
+                    </div>
+                  </div>
+                  <div class="control is-expanded">
+                    <label class="label">集装箱运费</label>
+                    <input class="input" type="number" id="freight" min="0" step="0.01" required />
+                  </div>
+                </div>
+
+                <div class="field is-grouped">
+                  <div class="control is-expanded">
+                    <label class="label">报价日期</label>
+                    <input class="input" type="date" id="quote-date" required />
+                  </div>
+                  <div class="control is-expanded">
+                    <label class="label">有效期至</label>
+                    <input class="input" type="date" id="valid-until" required />
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">协议方式 (Incoterm)</label>
+                  <div class="select is-fullwidth">
+                    <select id="incoterm" required></select>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">付款方式</label>
+                  <div class="select is-fullwidth">
+                    <select id="payment-method" required></select>
+                  </div>
+                  <p class="help is-muted" id="payment-help"></p>
+                </div>
+
+                <div class="field">
+                  <label class="label">收款银行</label>
+                  <div class="select is-fullwidth">
+                    <select id="bank" required></select>
+                  </div>
+                  <p class="help is-muted" id="bank-help"></p>
+                </div>
+
+                <div class="field">
+                  <label class="label">我方公司</label>
+                  <input class="input" type="text" id="seller" placeholder="例如：Shenzhen Buildmate Co., Ltd." required />
+                </div>
+                <div class="field">
+                  <label class="label">客户公司</label>
+                  <input class="input" type="text" id="buyer" placeholder="客户公司名称" required />
+                </div>
+
+                <div class="field">
+                  <label class="label">备注</label>
+                  <textarea class="textarea" id="remark" rows="2" placeholder="可填写包装、质保等信息"></textarea>
+                </div>
+
+                <div class="field">
+                  <button class="button is-primary is-fullwidth" type="submit">生成报价单</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="column is-7">
+            <h2 class="title is-4">报价结果</h2>
+            <div class="quote-card" id="quote-result">
+              <p class="is-muted">填写表单后展示详细报价。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      const state = {
+        products: [],
+        containers: [],
+        paymentMethods: [],
+        banks: [],
+        incoterms: [],
+      };
+
+      function setToday(selector) {
+        const input = document.querySelector(selector);
+        const today = new Date().toISOString().split("T")[0];
+        input.value = today;
+      }
+
+      async function loadOptions() {
+        const res = await fetch("/api/options");
+        const data = await res.json();
+        Object.assign(state, {
+          products: data.products,
+          containers: data.containers,
+          paymentMethods: data.payment_methods,
+          banks: data.banks,
+          incoterms: data.incoterms,
+        });
+
+        const productSelect = document.getElementById("product");
+        productSelect.innerHTML = state.products
+          .map(
+            (p) =>
+              `<option value="${p.id}">${p.name} (${p.specs}, MOQ ${p.min_order})</option>`
+          )
+          .join("");
+        updateProductHelp();
+
+        const containerSelect = document.getElementById("container");
+        containerSelect.innerHTML = state.containers
+          .map((c) => `<option value="${c.id}">${c.name}</option>`)
+          .join("");
+
+        const incotermSelect = document.getElementById("incoterm");
+        incotermSelect.innerHTML = state.incoterms
+          .map((t) => `<option value="${t}">${t}</option>`)
+          .join("");
+
+        const paymentSelect = document.getElementById("payment-method");
+        paymentSelect.innerHTML = state.paymentMethods
+          .map((p) => `<option value="${p.id}">${p.name}</option>`)
+          .join("");
+        updatePaymentHelp();
+
+        const bankSelect = document.getElementById("bank");
+        bankSelect.innerHTML = state.banks
+          .map((b) => `<option value="${b.id}">${b.name}</option>`)
+          .join("");
+        updateBankHelp();
+      }
+
+      function updateProductHelp() {
+        const productId = document.getElementById("product").value;
+        const product = state.products.find((p) => p.id === productId);
+        const help = document.getElementById("product-help");
+        const priceRange = document.getElementById("price-range");
+        const unitPriceInput = document.getElementById("unit-price");
+        if (product) {
+          help.textContent = `${product.description} | MOQ: ${product.min_order}`;
+          priceRange.textContent = `建议价格区间: ${product.price_range[0]} - ${product.price_range[1]} USD`;
+          unitPriceInput.min = product.price_range[0];
+          unitPriceInput.max = product.price_range[1];
+          unitPriceInput.value = product.price_range[0];
+          document.getElementById("quantity").value = product.min_order;
+        }
+      }
+
+      function updatePaymentHelp() {
+        const methodId = document.getElementById("payment-method").value;
+        const method = state.paymentMethods.find((m) => m.id === methodId);
+        const help = document.getElementById("payment-help");
+        help.textContent = method ? method.description : "";
+      }
+
+      function updateBankHelp() {
+        const bankId = document.getElementById("bank").value;
+        const bank = state.banks.find((b) => b.id === bankId);
+        const help = document.getElementById("bank-help");
+        help.textContent = bank
+          ? `${bank.account_name} / ${bank.account_number} / SWIFT ${bank.swift}`
+          : "";
+      }
+
+      async function submitForm(event) {
+        event.preventDefault();
+        const payload = {
+          seller_company: document.getElementById("seller").value,
+          buyer_company: document.getElementById("buyer").value,
+          incoterm: document.getElementById("incoterm").value,
+          payment_method_id: document.getElementById("payment-method").value,
+          bank_id: document.getElementById("bank").value,
+          container_id: document.getElementById("container").value,
+          freight: parseFloat(document.getElementById("freight").value),
+          quote_date: document.getElementById("quote-date").value,
+          valid_until: document.getElementById("valid-until").value,
+          remark: document.getElementById("remark").value || null,
+          item: {
+            product_id: document.getElementById("product").value,
+            quantity: parseInt(document.getElementById("quantity").value, 10),
+            unit_price: parseFloat(document.getElementById("unit-price").value),
+          },
+        };
+
+        const res = await fetch("/api/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const detail = await res.json();
+          renderError(detail.detail || "提交失败");
+          return;
+        }
+
+        const data = await res.json();
+        renderResult(data);
+      }
+
+      function renderError(message) {
+        const result = document.getElementById("quote-result");
+        result.innerHTML = `<article class="message is-danger"><div class="message-body">${message}</div></article>`;
+      }
+
+      function renderResult(data) {
+        const result = document.getElementById("quote-result");
+        result.innerHTML = `
+          <div class="content">
+            <p class="is-size-6 has-text-weight-semibold">产品</p>
+            <p>${data.product_name} | 规格：${data.product_specs}</p>
+            <p class="is-muted">MOQ: ${data.min_order} | 建议价格区间：${data.suggested_price_range} USD</p>
+
+            <hr />
+            <div class="columns">
+              <div class="column">
+                <p class="is-size-6 has-text-weight-semibold">金额</p>
+                <p>货值小计：<strong>${data.subtotal.toFixed(2)} USD</strong></p>
+                <p>运费：<strong>${data.freight.toFixed(2)} USD</strong></p>
+                <p>总金额：<strong class="has-text-primary">${data.total_amount.toFixed(2)} USD</strong></p>
+              </div>
+              <div class="column">
+                <p class="is-size-6 has-text-weight-semibold">柜型 & 装柜</p>
+                <p>${data.container_name} | 参考容量：${data.capacity} 件</p>
+                <p class="is-muted">${data.capacity_message}</p>
+              </div>
+            </div>
+
+            <div class="columns">
+              <div class="column">
+                <p class="is-size-6 has-text-weight-semibold">双方公司</p>
+                <p>卖方：${data.seller_company}</p>
+                <p>买方：${data.buyer_company}</p>
+              </div>
+              <div class="column">
+                <p class="is-size-6 has-text-weight-semibold">条款</p>
+                <p>协议方式：${data.incoterm}</p>
+                <p>付款方式：${data.payment_method}</p>
+                <p>收款银行：${data.bank_info}</p>
+              </div>
+            </div>
+
+            <p class="is-size-6 has-text-weight-semibold">日期</p>
+            <p>报价日期：${data.quote_date} | 有效期至：${data.valid_until}</p>
+
+            ${data.remark ? `<p class="is-size-6 has-text-weight-semibold">备注</p><p>${data.remark}</p>` : ""}
+          </div>
+        `;
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        loadOptions();
+        setToday("#quote-date");
+        setToday("#valid-until");
+        document
+          .getElementById("product")
+          .addEventListener("change", updateProductHelp);
+        document
+          .getElementById("payment-method")
+          .addEventListener("change", updatePaymentHelp);
+        document.getElementById("bank").addEventListener("change", updateBankHelp);
+        document
+          .getElementById("quote-form")
+          .addEventListener("submit", submitForm);
+      });
+    </script>
+  </body>
+</html>
