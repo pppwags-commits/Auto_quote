@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict
+from datetime import datetime
+from io import BytesIO
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse
 
 from app.data import (
     BANKS,
@@ -16,6 +19,7 @@ from app.data import (
     PRODUCTS,
 )
 from app.schemas import QuoteRequest, QuoteResponse
+from app.pdf_generator import build_quote_pdf
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 static_dir = BASE_DIR / "static"
@@ -30,7 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+ 
 
 
 @app.get("/api/options")
@@ -143,6 +147,22 @@ def create_quote(payload: QuoteRequest) -> QuoteResponse:
         remark=payload.remark,
     )
 
+
+@app.post("/api/quotes/{quote_id}/pdf")
+def download_quote_pdf(quote_id: str, quote_data: QuoteResponse) -> StreamingResponse:
+    """
+    根据报价数据生成 PDF 并返回文件流
+    """
+    pdf_bytes = build_quote_pdf(quote_data.dict())
+    filename = f"quotation_{quote_id}_{datetime.today().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,55 +1,57 @@
-# 报价单生成器
+# React + TypeScript + Vite
 
-一个基于 FastAPI 的简易报价单工具，前端使用 Bulma + 原生 JS，后端提供产品、柜型、付款方式等基础数据，并生成报价结果。
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## 快速开始
+Currently, two official plugins are available:
 
-1. 安装依赖
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-```bash
-pip install -r requirements.txt
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
 ```
 
-2. 运行服务
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-推荐使用虚拟环境：
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows 请使用 .venv\\Scripts\\activate
-pip install -r requirements.txt
-
-# 开发模式启动（自动重载）
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-打开浏览器访问 `http://127.0.0.1:8000/` 即可看到报价表单页面；接口根路径同样托管静态页。
-
-## 接口
-
-- `GET /api/options`：基础数据（产品、柜型、付款方式、银行、incoterms、币种）。
-- `POST /api/quotes`：传入报价请求，返回计算后的报价明细、柜量提示等；后端会校验 MOQ、单价区间、协议方式及币种合法性。
-
-## 结构
-
-```
-app/
-  data.py        # 静态数据：产品、柜型、付款方式、银行
-  schemas.py     # Pydantic 模型
-  main.py        # FastAPI 主应用，提供 API 并托管静态页
-static/
-  index.html     # 前端单页应用
-```
-
-## 说明
-
-- 前端会根据产品设置 MOQ 与建议单价区间，支持切换币种并校验有效期日期。
-- 后端会根据参考柜容量给出装柜提示，并计算小计、运费及总金额，同时限制最小起订量、单价区间、贸易术语与币种合法性。
-
-## 测试
-
-使用内置的语法检查命令快速验证代码是否可被解释器加载：
-
-```bash
-python -m compileall app
+export default tseslint.config({
+  extends: [
+    // other configs...
+    // Enable lint rules for React
+    reactX.configs['recommended-typescript'],
+    // Enable lint rules for React DOM
+    reactDom.configs.recommended,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
 ```

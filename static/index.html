@@ -135,6 +135,9 @@
                 <div class="field">
                   <button class="button is-primary is-fullwidth" type="submit">生成报价单</button>
                 </div>
+                <div class="field" id="pdf-button-container" style="display:none;">
+                  <button class="button is-link is-fullwidth" id="download-pdf">下载 PDF 报价单</button>
+                </div>
               </form>
             </div>
           </div>
@@ -250,6 +253,8 @@
           : "";
       }
 
+      let lastQuoteData = null; // 缓存最新报价结果
+
       async function submitForm(event) {
         event.preventDefault();
         const payload = {
@@ -284,7 +289,32 @@
         }
 
         const data = await res.json();
+        lastQuoteData = data; // 保存结果
         renderResult(data);
+        document.getElementById("pdf-button-container").style.display = "block";
+      }
+
+      async function downloadPdf() {
+        if (!lastQuoteData) return;
+        const quoteId = "quote_" + Date.now(); // 简单 ID
+        const res = await fetch(`/api/quotes/${quoteId}/pdf`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(lastQuoteData),
+        });
+        if (!res.ok) {
+          alert("生成 PDF 失败");
+          return;
+        }
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `quotation_${quoteId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
       }
 
       function renderError(message) {
@@ -353,6 +383,9 @@
         document
           .getElementById("quote-form")
           .addEventListener("submit", submitForm);
+        document
+          .getElementById("download-pdf")
+          .addEventListener("click", downloadPdf);
       });
     </script>
   </body>
